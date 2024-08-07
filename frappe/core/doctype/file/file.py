@@ -407,7 +407,7 @@ class File(Document):
 		elif not self.file_name and self.file_url:
 			self.file_name = self.file_url.split("/")[-1]
 		else:
-			self.file_name = re.sub(r"/", "", self.file_name)
+			self.file_name = re.sub(r"[/\\%?#]", "", self.file_name)
 
 	def generate_content_hash(self):
 		if self.content_hash or not self.file_url or self.is_remote_file:
@@ -675,7 +675,7 @@ class File(Document):
 			return self.save_file_on_filesystem()
 
 	def save_file_on_filesystem(self):
-		safe_file_name = self.file_name.replace("%", "_")
+		safe_file_name = re.sub(r"[/\\%?#]", "_", self.file_name)
 		if self.is_private:
 			self.file_url = f"/private/files/{safe_file_name}"
 		else:
