@@ -118,8 +118,10 @@ def generate_pot(target_app: str | None = None):
 	:param target_app: If specified, limit to `app`
 	"""
 
+	is_gitignored = get_is_gitignored_function_for_app(target_app)
+
 	def directory_filter(dirpath: str | os.PathLike[str]) -> bool:
-		if "public/dist" in dirpath:
+		if is_gitignored(str(dirpath)):
 			return False
 
 		subdir = os.path.basename(dirpath)
@@ -150,6 +152,51 @@ def generate_pot(target_app: str | None = None):
 
 		pot_path = write_catalog(app, catalog)
 		print(f"POT file created at {pot_path}")
+
+
+def get_is_gitignored_function_for_app(app: str | None):
+	"""
+	Used to check if a directory is gitignored or not.
+	Can NOT be used to check if a file is gitignored or not.
+	"""
+	import fnmatch
+	import re
+
+	if not app:
+		return lambda d: "public/dist" in d
+
+	ignores: set[str] = set()
+	unignores: set[str] = set()
+
+	gitignore = frappe.get_app_source_path(app, ".gitignore")
+	if gitignore and os.path.exists(gitignore):
+		with open(gitignore) as f:
+			for line in f:
+				line = line.strip().rstrip("/")
+				if not line:
+					continue
+				if line.startswith("#"):
+					continue
+				if line.startswith("!"):
+					unignores.add(line[1:].strip())
+				else:
+					ignores.add(line)
+
+	# Build regular expression that converts from globs to regex
+	def to_regex(glob: str) -> str:
+		return fnmatch.translate(glob).replace("\\Z", "(/.*)?$")
+
+	ignore_regex = re.compile("|".join(to_regex(r) for r in ignores), re.I)
+	unignore_regex = re.compile("|".join(to_regex(r) for r in unignores), re.I)
+
+	def _check_gitignore(d: str):
+		d = d.rstrip("/")
+		if ignores and ignore_regex.search(d):
+			if not (unignores and unignore_regex.search(d)):
+				return True
+		return False
+
+	return _check_gitignore
 
 
 def new_po(locale, target_app: str | None = None):
