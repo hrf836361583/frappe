@@ -4,8 +4,10 @@ import CheckControl from "./components/controls/CheckControl.vue";
 import CodeControl from "./components/controls/CodeControl.vue";
 import DataControl from "./components/controls/DataControl.vue";
 import GeolocationControl from "./components/controls/GeolocationControl.vue";
+import HTMLControl from "./components/controls/HTMLControl.vue";
 import ImageControl from "./components/controls/ImageControl.vue";
 import LinkControl from "./components/controls/LinkControl.vue";
+import NumberControl from "./components/controls/NumberControl.vue";
 import RatingControl from "./components/controls/RatingControl.vue";
 import SelectControl from "./components/controls/SelectControl.vue";
 import SignatureControl from "./components/controls/SignatureControl.vue";
@@ -23,26 +25,26 @@ export function registerGlobalComponents(app) {
 		.component("CheckControl", CheckControl)
 		.component("CodeControl", CodeControl)
 		.component("ColorControl", DataControl)
-		.component("CurrencyControl", DataControl)
+		.component("CurrencyControl", NumberControl)
 		.component("DataControl", DataControl)
 		.component("DateControl", DataControl)
 		.component("DatetimeControl", DataControl)
 		.component("DurationControl", DataControl)
 		.component("DynamicLinkControl", DataControl)
-		.component("FloatControl", DataControl)
+		.component("FloatControl", NumberControl)
 		.component("GeolocationControl", GeolocationControl)
 		.component("HeadingControl", ButtonControl)
-		.component("HTMLControl", DataControl)
+		.component("HTMLControl", HTMLControl)
 		.component("HTMLEditorControl", CodeControl)
 		.component("IconControl", DataControl)
 		.component("ImageControl", ImageControl)
-		.component("IntControl", DataControl)
+		.component("IntControl", NumberControl)
 		.component("JSONControl", CodeControl)
 		.component("LinkControl", LinkControl)
 		.component("LongTextControl", TextControl)
 		.component("MarkdownEditorControl", CodeControl)
 		.component("PasswordControl", DataControl)
-		.component("PercentControl", DataControl)
+		.component("PercentControl", NumberControl)
 		.component("PhoneControl", DataControl)
 		.component("ReadOnlyControl", DataControl)
 		.component("RatingControl", RatingControl)
