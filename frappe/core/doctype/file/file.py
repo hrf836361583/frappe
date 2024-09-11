@@ -90,6 +90,9 @@ class File(Document):
 			self.name = frappe.generate_hash(length=10)
 
 	def before_insert(self):
+		# Ensure correct formatting and type
+		self.file_url = unquote(self.file_url) if self.file_url else ""
+
 		self.set_folder_name()
 		self.set_is_private()
 		self.set_file_name()
@@ -116,9 +119,6 @@ class File(Document):
 	def validate(self):
 		if self.is_folder:
 			return
-
-		# Ensure correct formatting and type
-		self.file_url = unquote(self.file_url) if self.file_url else ""
 
 		self.validate_attachment_references()
 
@@ -407,7 +407,7 @@ class File(Document):
 		elif not self.file_name and self.file_url:
 			self.file_name = self.file_url.split("/")[-1]
 		else:
-			self.file_name = re.sub(r"/", "", self.file_name)
+			self.file_name = re.sub(r"[/\\%?#]", "", self.file_name)
 
 	def generate_content_hash(self):
 		if self.content_hash or not self.file_url or self.is_remote_file:
@@ -675,10 +675,11 @@ class File(Document):
 			return self.save_file_on_filesystem()
 
 	def save_file_on_filesystem(self):
+		safe_file_name = re.sub(r"[/\\%?#]", "_", self.file_name)
 		if self.is_private:
-			self.file_url = f"/private/files/{self.file_name}"
+			self.file_url = f"/private/files/{safe_file_name}"
 		else:
-			self.file_url = f"/files/{self.file_name}"
+			self.file_url = f"/files/{safe_file_name}"
 
 		fpath = self.write_file()
 
