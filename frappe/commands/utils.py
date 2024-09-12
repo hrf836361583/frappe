@@ -8,7 +8,7 @@ import click
 
 import frappe
 from frappe import _
-from frappe.commands import get_site, pass_context
+from frappe.commands import pass_context
 from frappe.coverage import CodeCoverage
 from frappe.exceptions import SiteNotSpecifiedError
 from frappe.utils import cint, update_progress_bar
@@ -309,7 +309,7 @@ def execute(context, method, args=None, kwargs=None, profile=False):
 @pass_context
 def add_to_email_queue(context, email_path):
 	"Add an email to the Email Queue"
-	site = get_site(context)
+	site = next(context.sites)
 
 	if os.path.isdir(email_path):
 		with frappe.init_site(site):
@@ -448,7 +448,7 @@ def data_import(context, file_path, doctype, import_type=None, submit_after_impo
 	"Import documents in bulk from CSV or XLSX using data import"
 	from frappe.core.doctype.data_import.data_import import import_file
 
-	site = get_site(context)
+	site = next(context.sites)
 
 	frappe.init(site=site)
 	frappe.connect()
@@ -465,7 +465,7 @@ def bulk_rename(context, doctype, path):
 	from frappe.model.rename_doc import bulk_rename
 	from frappe.utils.csvutils import read_csv_content
 
-	site = get_site(context)
+	site = next(context.sites)
 
 	with open(path) as csvfile:
 		rows = read_csv_content(csvfile.read())
@@ -485,7 +485,7 @@ def database(context, extra_args):
 	"""
 	Enter into the Database console for given site.
 	"""
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site=site)
 	_enter_console(extra_args=extra_args)
 
@@ -497,7 +497,7 @@ def mariadb(context, extra_args):
 	"""
 	Enter into mariadb console for a given site.
 	"""
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site=site)
 	frappe.conf.db_type = "mariadb"
 	_enter_console(extra_args=extra_args)
@@ -510,7 +510,7 @@ def postgres(context, extra_args):
 	"""
 	Enter into postgres console for a given site.
 	"""
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site=site)
 	frappe.conf.db_type = "postgres"
 	_enter_console(extra_args=extra_args)
@@ -554,7 +554,7 @@ def jupyter(context):
 	if "jupyter" not in installed_packages:
 		subprocess.check_output([sys.executable, "-m", "pip", "install", "jupyter"])
 
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site=site)
 
 	jupyter_notebooks_path = os.path.abspath(frappe.get_site_path("jupyter_notebooks"))
@@ -612,7 +612,7 @@ def store_logs(terminal: "InteractiveShellEmbed") -> None:
 @pass_context
 def console(context, autoreload=False):
 	"Start ipython console for a site"
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site=site)
 	frappe.connect()
 	frappe.local.lang = frappe.db.get_default("lang")
@@ -678,7 +678,7 @@ def console(context, autoreload=False):
 @pass_context
 def transform_database(context, table, engine, row_format, failfast):
 	"Transform site database through given parameters"
-	site = get_site(context)
+	site = next(context.sites)
 	check_table = []
 	add_line = False
 	skipped = 0
@@ -790,7 +790,7 @@ def run_tests(
 		import frappe.test_runner
 
 		tests = test
-		site = get_site(context)
+		site = next(context.sites)
 
 		frappe.init(site)
 		allow_tests = frappe.get_conf().allow_tests
@@ -852,7 +852,7 @@ def run_parallel_tests(
 	from traceback_with_variables import activate_by_import
 
 	with CodeCoverage(with_coverage, app):
-		site = get_site(context)
+		site = next(context.sites)
 		if use_orchestrator:
 			from frappe.parallel_test_runner import ParallelTestWithOrchestrator
 
@@ -894,7 +894,7 @@ def run_ui_tests(
 	cypressargs=None,
 ):
 	"Run UI tests"
-	site = get_site(context)
+	site = next(context.sites)
 	frappe.init(site)
 	app_base_path = frappe.get_app_source_path(app)
 	site_url = frappe.utils.get_site_url(site)
@@ -983,10 +983,7 @@ def serve(
 	"Start development web server"
 	import frappe.app
 
-	if not context.sites:
-		site = None
-	else:
-		site = context.sites[0]
+	site = next(context.sites)
 	with CodeCoverage(with_coverage, "frappe"):
 		if with_coverage:
 			# unable to track coverage with threading enabled
