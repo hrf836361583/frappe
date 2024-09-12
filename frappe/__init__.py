@@ -24,6 +24,7 @@ import signal
 import sys
 import warnings
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeAlias, overload
 
 import click
@@ -199,6 +200,7 @@ def set_user_lang(user: str, user_language: str | None = None) -> None:
 
 
 # local-globals
+site = local("site")
 
 db = local("db")
 qb = local("qb")
@@ -242,13 +244,25 @@ if TYPE_CHECKING:  # pragma: no cover
 	user: str
 	flags: _dict
 	lang: str
+	site: Sites.Site
 
 
 # end: static analysis hack
+@functools.singledispatch
+def init(*args, **kwargs) -> None:
+	raise NotImplementedError("Unsupported type")
 
 
-def init(site: "Sites.Site", sites_path: str = ".", new_site: bool = False, force=False) -> None:
-	"""Initialize frappe for the current site. Reset thread locals `frappe.local`"""
+@init.register
+def _old_init(site: str, sites_path: str = ".", new_site: bool = False, force=False) -> None:
+	implied_bench_path = Path(sites_path).resolve().parent
+	bench = Bench(implied_bench_path, site_name=site)
+	return _init(bench, force)
+
+
+@init.register
+def _init(bench: "Bench", force: bool = False) -> None:
+	"""Initialize frappe for the current bench. Reset thread locals `frappe.local`"""
 	if getattr(local, "initialised", None) and not force:
 		return
 
@@ -267,24 +281,21 @@ def init(site: "Sites.Site", sites_path: str = ".", new_site: bool = False, forc
 			"ignore_links": False,
 			"mute_emails": False,
 			"has_dataurl": False,
-			"new_site": new_site,
 			"read_only": False,
 		}
 	)
 	local.locked_documents = []
 	local.test_objects = {}
 
-	local.bench = Bench(site_name=site.name)
-	local.site = site.name
-	local.sites_path = local.bench.sites.path
-	local.site_path = site.path
+	local.bench = bench
+	local.site = bench.sites.site  # raises NotImplementedError if bench is unscoped
 	local.all_apps = None
 
 	local.request_ip = None
 	local.response = _dict({"docs": []})
 	local.task_id = None
 
-	local.conf = _dict(local.bench.sites.get_current_site_config())
+	local.conf = _dict(bench.sites.site.get_merged_config())
 	local.lang = local.conf.lang or "en"
 
 	local.module_app = None
@@ -396,12 +407,12 @@ def get_site_config(sites_path: str | None = None, site_path: str | None = None)
 
 	deprecation_warning(
 		"Calling frappe.get_site_config is deprecated and will be removed in next major version. "
-		"Instead, use either frappe.local.bench.sites.get_current_site_config() directly. "
+		"Instead, use either frappe.local.bench.sites.site.get_merged_config() directly. "
 		"If not in a frappe.local environment this becomes: frappe.bench.Bench().sites.get_site_config(sitename)."
 	)
-	implied_bench_path = os.path.join(sites_path.split(os.path.sep)[:-1]) if sites_path else None
+	implied_bench_path = Path(sites_path).resolve().parent if sites_path else None
 	bench: Bench = getattr(local, "bench", None) or Bench(implied_bench_path)
-	site = site_path.split(os.path.sep)[-1] if site_path else None
+	site = Path(sites_path).resolve().name if site_path else None
 	return _dict(bench.sites.get_site_config(site))
 
 
@@ -420,7 +431,7 @@ def get_common_site_config(sites_path: str | None = None) -> dict[str, Any]:
 		"If not in a frappe.local environment this becomes: frappe.bench.Bench().sites.common_site_config."
 	)
 
-	implied_bench_path = os.path.join(sites_path.split(os.path.sep)[:-1]) if sites_path else None
+	implied_bench_path = Path(sites_path).resolve().parent if sites_path else None
 	bench: Bench = getattr(local, "bench", None) or Bench(implied_bench_path)
 	return _dict(bench.sites.common_site_config)
 

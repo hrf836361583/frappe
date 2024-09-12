@@ -109,16 +109,21 @@ class Sites(Benched, ConfigHandler):
 		Benched.__init__(self, path, parent_path)
 		ConfigHandler.__init__(self, os.path.join(self.path, "common_site_config.json"))
 		self._sites = None
+		# security: self.site_name attribute scopes access
 		self.site_name = (
 			site_name or os.environ.get("FRAPPE_SITE") or self.common_site_config.get("default_site")
 		)
 		self._iterator = None
 
 	class Site(ConfigHandler):
-		def __init__(self, name: str, path: str):
+		def __init__(self, name: str, path: str, sites: super.Sites):
 			self.name = name
 			self.path = path
+			self.sites = sites
 			ConfigHandler.__init__(self, os.path.join(self.path, "site_config.json"))
+
+	def get_merged_config(self) -> dict[str, Any]:
+		return self.sites.get_site_config(self.name)
 
 	def add_site(self, site_name: str):
 		site_path = os.path.join(self.path, site_name)
@@ -141,17 +146,17 @@ class Sites(Benched, ConfigHandler):
 
 	def get_site_config(self, site_name: str) -> dict[str, Any]:
 		site = self[site_name]
-		if not site:
-			raise ValueError(f"Site {site_name} not found")
 
 		combined_config = self.common_site_config.copy()
 		combined_config.update(site.config)
 		return combined_config
 
-	def get_current_site_config(self) -> dict[str, Any]:
-		if not self.site_name:
-			raise NotImplementedError("Sites was not initialized with a site_name")
-		return self.get_site_config(self.site_name)
+	@property
+	def site(self) -> Site:
+		# security: self.site_name attribute scopes access
+		if not self.site_name or self.site_name == self.ALL_SITES:
+			raise NotImplementedError("Sites was not scoped to a single site, yet.")
+		return self[self.site_name]
 
 	@property
 	def sites(self) -> dict[str, Site]:
@@ -162,6 +167,7 @@ class Sites(Benched, ConfigHandler):
 				if os.path.isdir(site_path) and os.path.exists(os.path.join(site_path, "site_config.json")):
 					self._sites[site_name] = self.Site(site_name, site_path)
 
+			# security: self.site_name attribute scopes access
 			if self.site_name and self.site_name != self.ALL_SITES:
 				site_path = os.path.join(self.path, self.site_name)
 				_process(self.site_name, site_path)
@@ -172,11 +178,17 @@ class Sites(Benched, ConfigHandler):
 		return self._sites
 
 	def __iter__(self):
-		return iter(self.sites.values())
+		# security: self.site_name attribute scopes access
+		if self.site_name == self.ALL_SITES:
+			return iter(self.sites.values())
+		elif self.site_name:
+			return iter([self.sites[self.site_name]])
+		raise NotImplementedError("Sites was not scoped, yet.")
 
 	def __next__(self):
 		if self._iterator is None:
-			self._iterator = iter(self.sites.values())
+			self._iterator = self.__iter__()
+			return self._iterator
 		try:
 			return next(self._iterator)
 		except StopIteration:
@@ -184,7 +196,10 @@ class Sites(Benched, ConfigHandler):
 			raise
 
 	def __getitem__(self, key):
-		return self.sites[key]
+		try:
+			return self.sites[key]
+		except KeyError:
+			raise ValueError(f"Site '{key}' was not loaded")
 
 
 class Bench(Benched):
@@ -194,3 +209,6 @@ class Bench(Benched):
 		self.logs = Logs(parent_path=self.path)
 		self.run = Run(parent_path=self.path)
 		self.sites = Sites(parent_path=self.path, site_name=site_name)
+
+	def set_site(self, site_name: str):
+		self.sites.set_site(site_name)
