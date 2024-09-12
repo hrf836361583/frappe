@@ -790,7 +790,7 @@ def run_tests(
 		import frappe.test_runner
 
 		tests = test
-		site = get_site(context)
+		site = next(context.sites)
 
 		frappe.init(site)
 		allow_tests = frappe.get_conf().allow_tests
@@ -983,10 +983,7 @@ def serve(
 	"Start development web server"
 	import frappe.app
 
-	if not context.sites:
-		site = None
-	else:
-		site = context.sites[0]
+	site = next(context.sites)
 	with CodeCoverage(with_coverage, "frappe"):
 		if with_coverage:
 			# unable to track coverage with threading enabled

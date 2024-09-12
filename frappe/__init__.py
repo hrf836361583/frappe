@@ -222,6 +222,7 @@ lang = local("lang")
 if TYPE_CHECKING:  # pragma: no cover
 	from werkzeug.wrappers import Request
 
+	from frappe.bench import Sites
 	from frappe.database.mariadb.database import MariaDBDatabase
 	from frappe.database.postgres.database import PostgresDatabase
 	from frappe.email.doctype.email_queue.email_queue import EmailQueue
@@ -246,7 +247,7 @@ if TYPE_CHECKING:  # pragma: no cover
 # end: static analysis hack
 
 
-def init(site: str, sites_path: str = ".", new_site: bool = False, force=False) -> None:
+def init(site: "Sites.Site", sites_path: str = ".", new_site: bool = False, force=False) -> None:
 	"""Initialize frappe for the current site. Reset thread locals `frappe.local`"""
 	if getattr(local, "initialised", None) and not force:
 		return
@@ -273,10 +274,10 @@ def init(site: str, sites_path: str = ".", new_site: bool = False, force=False) 
 	local.locked_documents = []
 	local.test_objects = {}
 
-	local.site = site
-	local.bench = Bench(site)
-	local.sites_path = sites_path
-	local.site_path = os.path.join(sites_path, site)
+	local.bench = Bench(site_name=site.name)
+	local.site = site.name
+	local.sites_path = local.bench.sites.path
+	local.site_path = site.path
 	local.all_apps = None
 
 	local.request_ip = None

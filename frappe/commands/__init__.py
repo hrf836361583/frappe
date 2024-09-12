@@ -52,7 +52,7 @@ def pass_context(f):
 
 def get_site(context, raise_err=True):
 	try:
-		return context.sites[0]
+		return next(context.sites)
 	except (IndexError, TypeError):
 		if raise_err:
 			raise frappe.SiteNotSpecifiedError
